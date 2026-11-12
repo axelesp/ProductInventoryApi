@@ -1,10 +1,13 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace ProductInventoryApi.DTOs
+namespace ProductInventory.Business.DTOs
 {
     public class ProductDto
     {
-        public record CreateProductDto(
+        public record ProductResponseDto(int Id, string ProductCode, string Name, decimal Price, int Stock);
+        public record CreateProductDto(string ProductCode, string Name, decimal Price, int InitialStock);
+        public record UpdateStockDto(int Quantity);
+        public record CreateProductDto2(
             [Required, StringLength(50, MinimumLength = 3)] 
             string ProductCode,
             [Required, StringLength(150, MinimumLength = 2)] 
@@ -27,7 +30,7 @@ namespace ProductInventoryApi.DTOs
             [Required] int Quantity
         );
 
-        public record ProductResponseDto(
+        public record ProductResponseDto2(
             int Id,
             string Sku,
             string Name,
