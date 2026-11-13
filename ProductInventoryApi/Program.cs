@@ -1,8 +1,9 @@
 
+using Microsoft.EntityFrameworkCore;
 using ProductInventory.Business.Services;
-using ProductInventory.Entities.Interfaces;
-using ProductInventory.Data.Repositors;
 using ProductInventory.Data;
+using ProductInventory.Data.Repositors;
+using ProductInventory.Entities.Interfaces;
 
 namespace ProductInventoryApi
 {
@@ -11,8 +12,23 @@ namespace ProductInventoryApi
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            /*
+            var dbfolderPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "Data"));
+            if (!Directory.Exists(dbfolderPath))
+            {
+                Directory.CreateDirectory(dbfolderPath);
+            }
+            var dbFilePath = Path.Combine(dbfolderPath, "ProductInventory.mdf");
 
+            //var connectionString = $"Server=(localdb)\\mssqllocaldb;Database=ProductInventory;AttachDbFilename={dbFilePath};Trusted_Connection=True;MultipleActiveResultSets=true";
+            var connString = builder.Configuration.GetConnectionString("DBConn")!;
+            connString = connString.Replace("dbFilePath", dbfolderPath);
+            builder.Services.AddDbContext<ApiDBContext>(options =>
+                options.UseSqlServer(connString));
+            */
             // Add services to the container.
+            builder.Services.AddDbContext<ApiDBContext>(options =>
+                options.UseSqlServer(builder.Configuration.GetConnectionString("DBConn")));
             builder.Services.AddScoped<IProductRepository, ProductRepository>();
             builder.Services.AddScoped<IProductService, ProductService>();
 
