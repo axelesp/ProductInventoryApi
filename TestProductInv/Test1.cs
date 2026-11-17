@@ -44,14 +44,12 @@ namespace TestProductInv
         [TestMethod]
         public void TestCreateProduct()
         {
-            ProductDto.CreateProductDto newProduct = new ProductDto.CreateProductDto
-            {
-                ProductCode = "TEST123",
-                Name = "Test Product",
-                Description = "This is a test product.",
-                Price = 9.99m,
-                InitialStock = 100
-            };
+            ProductDto.CreateProductDto newProduct = new ProductDto.CreateProductDto(
+                "TEST123",
+                "Test Product",
+                "This is a test product.",
+                9.99m,
+                100);
             var createdProduct = ProductService.CreateProductAsync(newProduct).Result;
             Assert.IsNotNull(createdProduct);
             Assert.AreEqual(newProduct.Name, createdProduct.Name);

@@ -22,9 +22,9 @@ namespace ProductInventoryApi
             builder.Services.AddDbContext<ApiDBContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DBConn"),
                 sqlOptions => sqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 5, // Número máximo de reintentos
-            maxRetryDelay: TimeSpan.FromSeconds(30), // Tiempo máximo de espera entre intentos
-            errorNumbersToAdd: null // Códigos de error SQL adicionales (opcional)
+            maxRetryCount: 5, 
+            maxRetryDelay: TimeSpan.FromSeconds(30), 
+            errorNumbersToAdd: null 
             )));
 
             builder.Services.AddScoped<IProductRepository, ProductRepository>();
@@ -42,7 +42,7 @@ namespace ProductInventoryApi
                     {
                         ValidateAudience = false, 
                         ValidateIssuer = true, 
-                        ValidateLifetime = false, // Validar la vida útil del token
+                        ValidateLifetime = false, 
                         ValidIssuers = new[] {
                             "http://keycloak:8080/realms/inventory",
                             "http://localhost:8081/realms/inventory"
@@ -85,13 +85,11 @@ namespace ProductInventoryApi
             builder.Services.AddSwaggerGen(options =>
             {
                 options.SwaggerDoc("v1", new OpenApiInfo { Title = "Inventory API", Version = "v1" });
-                // seguridad OAuth2
                 options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
                 {
                     Type = SecuritySchemeType.OAuth2,
                     Flows = new OpenApiOAuthFlows
                     {
-                        // Flujo Client Credentials (probar APIs entre servicios o en Swagger)
                         ClientCredentials = new OpenApiOAuthFlow
                         {
                             TokenUrl = new Uri("http://localhost:8081/realms/inventory/protocol/openid-connect/token"),
@@ -129,7 +127,6 @@ namespace ProductInventoryApi
                 db.Database.EnsureCreated(); // Para producción se debe usar db.Database.Migrate();
             }
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -137,7 +134,6 @@ namespace ProductInventoryApi
             }
 
             app.UseHttpsRedirection();
-            //app.UseAuthentication();
             app.UseAuthorization();
 
 
