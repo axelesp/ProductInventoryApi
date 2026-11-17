@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using ProductInventory.Business.Services;
 using static ProductInventory.Business.DTOs.ProductDto;
 
@@ -6,6 +7,7 @@ namespace ProductInventoryApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ProductController : ControllerBase
     {
         private readonly IProductService _productService;
@@ -15,32 +17,37 @@ namespace ProductInventoryApi.Controllers
             _productService = productService;
         }
 
-        [HttpGet]
+        [HttpGet("GetAllProducts")]
+        [Authorize(Policy = "ReadInventory")]
         public async Task<IActionResult> GetAllProducts() => Ok(await _productService.GetAllProductsAsync());
 
-        [HttpGet("{id:int}")]
+        [HttpGet("GetProduct/{id:int}")]
+        [Authorize(Policy = "ReadInventory")]
         public async Task<IActionResult> GetProductById(int id)
         {
             var product = await _productService.GetProductByIdAsync(id);
             return product is null ? NotFound() : Ok(product);
         }
 
-        [HttpPost]
+        [HttpPost("CreateProduct")]
+        [Authorize(Policy = "WriteInventory")]
         public async Task<IActionResult> Create([FromBody] CreateProductDto dto)
         {
             var created = await _productService.CreateProductAsync(dto);
             return CreatedAtAction(nameof(GetProductById), new { id = created.Id }, created);
         }
 
-        [HttpPatch("{id:int}/stock")]
+        [HttpPatch("ModifyStock/{id:int}/stock")]
+        [Authorize(Policy = "WriteInventory")]
         public async Task<IActionResult> AdjustStock(int id, [FromBody] UpdateStockDto dto)
         {
-            //var updated = await _productService.AdjustStockAsync(id, dto.Quantity);
+            var updated = await _productService.AdjustStockAsync(id, dto.Quantity);
             await _productService.AdjustStockAsync(id, dto.Quantity);
             return Ok(); //updated ? NoContent() : NotFound();
         }
 
-        [HttpDelete("{id:int}")]
+        [HttpDelete("DeleteProduct/{id:int}")]
+        [Authorize(Policy = "WriteInventory")]
         public async Task<IActionResult> Delete(int id)
         {
             //var deleted = await _productService.DeleteProductAsync(id);

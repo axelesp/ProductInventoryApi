@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ProductInventory.Entities;
+using ProductInventory.Entities.Entities;
 using System;
 
 namespace ProductInventory.Data
@@ -9,6 +10,7 @@ namespace ProductInventory.Data
         public ApiDBContext(DbContextOptions<ApiDBContext> options) : base(options) { }
 
         public DbSet<Product> Products => Set<Product>();
+        public DbSet<Categories> Categories => Set<Categories>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -22,19 +24,18 @@ namespace ProductInventory.Data
                 entity.Property(p => p.ProductCode).HasMaxLength(20).IsRequired();
                 entity.Property(p => p.Name).HasMaxLength(200).IsRequired();
                 entity.Property(p => p.Description).HasMaxLength(3000);
-                entity.Property(p => p.Price).HasColumnType("decimal(18,2)").IsRequired();
+                entity.Property(p => p.Price).HasColumnType("decimal(16,2)").IsRequired();
                 entity.Property(p => p.Stock).IsRequired();
             });
-            /*
-            modelBuilder.Entity<Product>(entity =>
+            
+            modelBuilder.Entity<Categories>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.HasIndex(e => e.ProductCode).IsUnique();
-                entity.Property(e => e.ProductCode).IsRequired().HasMaxLength(20);
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(3000);
-                entity.Property(e => e.Price).HasColumnType("decimal(18,2)");
+                entity.HasKey(c => c.Id);
+                entity.Property(c => c.Name).IsRequired().HasMaxLength(50);
+                entity.Property(c => c.Description).HasMaxLength(3000);
+                entity.Property(c => c.parentCategoryId).HasDefaultValue(0);
+                entity.Property(c => c.IsActive).HasDefaultValue(true);
             });
-            */
         }
     }
 }

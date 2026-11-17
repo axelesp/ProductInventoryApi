@@ -1,0 +1,53 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    restart: always
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "experis.api26"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1434:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - product_inventory_net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: inventory_oauth2
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080"
+    networks:
+      - product_inventory_net
+
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: productInventory_Api
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection:  "Server=sqlserver;Database=InventoryDb;User Id=sa;Password=experis.api26;TrustServerCertificate=True;"
+      OAuth2__Authority: "http://keycloak:8080/realms/inventory"
+      OAuth2__Audience: "api"
+    depends_on:
+      - sqlserver   
+      - keycloak
+    networks:
+      - product_inventory_net
+
+volumes:
+  sqlserver_data:
+
+networks:
+  product_inventory_net:
+    driver: bridge

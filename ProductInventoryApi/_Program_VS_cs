@@ -1,0 +1,215 @@
+
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using ProductInventory.Business.Services;
+using ProductInventory.Data;
+using ProductInventory.Data.Repositors;
+using ProductInventory.Entities.Interfaces;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+namespace ProductInventoryApi
+{
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            // Clave secreta local solo para desarrollo (mínimo 32 caracteres)
+            var jwtKey = "ClaveSuperSecretaParaPruebasLocalesDeInventario2026!";
+            var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+
+            var builder = WebApplication.CreateBuilder(args);
+          
+            // Add services to the container.
+            builder.Services.AddDbContext<ApiDBContext>(options =>
+                options.UseSqlServer(builder.Configuration.GetConnectionString("DBConn2"),
+                sqlOptions => sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5, // Número máximo de reintentos
+            maxRetryDelay: TimeSpan.FromSeconds(30), // Tiempo máximo de espera entre intentos
+            errorNumbersToAdd: null // Códigos de error SQL adicionales (opcional)
+            )));
+
+            builder.Services.AddScoped<IProductRepository, ProductRepository>();
+            builder.Services.AddScoped<IProductDapperRepository, ProductDapperRepository>();
+            builder.Services.AddScoped<IProductService, ProductService>();
+            
+            //builder.Services.AddAuthentication("Bearer")
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                //.AddJwtBearer("Bearer", options =>
+                .AddJwtBearer(options =>
+                {
+                    /*
+                    options.Authority = builder.Configuration["OAuth2:Authority"]; 
+                    options.Audience = builder.Configuration["OAuth2:Audience"]; 
+                    options.RequireHttpsMetadata = false; // Solo para desarrollo, en producción debe ser true
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateAudience = false, 
+                        ValidateIssuer = true, 
+                        ValidateLifetime = true, // Validar la vida útil del token
+                        ValidIssuers = new[] {
+                            "http://keycloak:8080/realms/inventory",
+                            "http://localhost:8081/realms/inventory"
+                        },
+                    };
+                    */
+                    /*Pruebas solo en swagger sin docker */
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = "inventory-local",
+                        ValidAudience = "inventory-api",
+                        IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
+                    };
+                });
+
+            builder.Services.AddAuthorization(options =>
+            {
+                /*
+                options.AddPolicy("ReadInventory", policy =>
+                {
+                    //policy.RequireAuthenticatedUser();
+                    policy.RequireClaim("scope", "inventory.read");
+                });
+                options.AddPolicy("WriteInventory", policy =>
+                {
+                    //policy.RequireAuthenticatedUser();
+                    policy.RequireClaim("scope", "inventory.write");
+                });
+                */
+                options.AddPolicy("ReadInventory", policy =>
+                   policy.RequireAssertion(context =>
+                   {
+                       var scopeClaim = context.User.FindFirst("scope")?.Value;
+                       return scopeClaim != null && scopeClaim.Split(' ').Contains("inventory.read");
+                   }));
+
+                options.AddPolicy("WriteInventory", policy =>
+                    policy.RequireAssertion(context =>
+                    {
+                        var scopeClaim = context.User.FindFirst("scope")?.Value;
+                        return scopeClaim != null && scopeClaim.Split(' ').Contains("inventory.write");
+                }));
+            });
+            
+            builder.Services.AddControllers();
+            builder.Services.AddEndpointsApiExplorer();
+            //builder.Services.AddSwaggerGen();
+            
+            builder.Services.AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc("v1", new OpenApiInfo { Title = "Inventory API", Version = "v1" });
+                // Esquema de seguridad OAuth2
+                /*Pruebas solo en swagger sin docker  */
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "Bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Pega aquí el token JWT generado."
+                });
+                /*
+                options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
+                {
+                    Type = SecuritySchemeType.OAuth2,
+                    Flows = new OpenApiOAuthFlows
+                    {
+                        // Flujo Client Credentials (ideal para probar APIs entre servicios o en Swagger)
+                        ClientCredentials = new OpenApiOAuthFlow
+                        {
+                            TokenUrl = new Uri("http://localhost:8081/realms/inventory/protocol/openid-connect/token"),
+                            Scopes = new Dictionary<string, string>
+                            {
+                                { "inventory.read", "Permite leer el inventario" },
+                                { "inventory.write", "Permite crear y actualizar productos" }
+                            }
+                        }
+                    }
+                });
+                */
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                //Id = "Bearer para pruebas locales swagger"
+                                Id = "Bearer" //Id = "oauth2" 
+                            }
+                        },
+                        // Array.Empty<string>() para pruebas locales swagger
+                        Array.Empty<string>() //new[] { "inventory.read", "inventory.write" }
+                    }
+                });
+            });
+            
+            var app = builder.Build();
+
+            // Aplicar migraciones automáticamente en entorno Docker
+            // crear BD automáticamente al iniciar el contenedor
+            using (var scope = app.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<ApiDBContext>();
+                db.Database.EnsureCreated(); // Para producción se debe usar db.Database.Migrate();
+            }
+
+            // Configure the HTTP request pipeline.
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseSwagger();
+                app.UseSwaggerUI();
+                //app.UseSwaggerUI(options =>
+                //{
+                //    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Inventory API v1");
+                //    // Opcional: pre-llenar el ClientId en la ventana de Swagger
+                //    options.OAuthClientId("swagger-client");
+                //});
+                // Endpoint auxiliar para generar tokens de prueba sin servidor externo
+                app.MapPost("/api/dev-token", () =>
+                {
+                    var claims = new[]
+                    {
+                        new Claim(JwtRegisteredClaimNames.Sub, "usuario-prueba"),
+                        new Claim("scope", "inventory.read"),
+                        new Claim("scope", "inventory.write")
+                    };
+
+                    var credentials = new SigningCredentials(
+                        new SymmetricSecurityKey(keyBytes),
+                        SecurityAlgorithms.HmacSha256);
+
+                    var token = new JwtSecurityToken(
+                        issuer: "inventory-local",
+                        audience: "inventory-api",
+                        claims: claims,
+                        expires: DateTime.UtcNow.AddHours(2),
+                        signingCredentials: credentials);
+
+                    var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+                    return Results.Ok(new { access_token = jwt });
+                })
+                .WithTags("Auth Local (Solo Dev)")
+                .AllowAnonymous();
+            }
+
+            app.UseHttpsRedirection();
+            app.UseAuthentication();
+            app.UseAuthorization();
+
+
+            app.MapControllers();
+
+            app.Run();
+        }
+    }
+}

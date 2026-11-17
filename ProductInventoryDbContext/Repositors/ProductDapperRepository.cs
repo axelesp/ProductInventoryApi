@@ -1,0 +1,71 @@
+﻿using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using ProductInventory.Entities;
+using ProductInventory.Entities.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using Dapper;
+
+namespace ProductInventory.Data.Repositors
+{
+    public class ProductDapperRepository : IProductDapperRepository
+    {
+        private readonly string _connectionString;
+
+        public ProductDapperRepository(IConfiguration configuration)
+        {
+            _connectionString = configuration.GetConnectionString("DBconn")!;
+        }
+
+        private IDbConnection CreateConnection() => new SqlConnection(_connectionString);
+
+        public async Task<int> AddProductAsync(Product product)
+        {
+            const string sql = @"
+            INSERT INTO Products (ProductCode, Name, Price, Description, Stock, CreatedAt)
+            VALUES (@ProductCode, @Name, @Price, @Description, @Stock, @CreatedAt);";
+            try
+            {
+                using var connection = CreateConnection();
+                int rowsAffected = await connection.ExecuteAsync(sql, product);
+            }
+            catch(Exception ex)
+            {
+                throw new Exception($"Error al agregar el producto: {ex.Message}");
+            }   
+            return product.Id;
+        }
+
+        public async Task<bool> UpdateStockAsync(int id, int quantityChange)
+        {
+            const string sql = @"UPDATE Products SET Stock = Stock + @QuantityChange, UpdatedAt = GETDATE() 
+                                WHERE Id = @Id AND (Stock + @QuantityChange) >= 0;";
+            try
+            {
+                using var connection = CreateConnection();
+                var affectedRows = await connection.ExecuteAsync(sql, new { Id = id, QuantityChange = quantityChange });
+                return affectedRows > 0;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error al actualizar el stock: {ex.Message}");
+            }
+        }
+
+        public async Task<bool> DeleteProductAsync(int id)
+        {
+            const string sql = @"DELETE FROM Products WHERE Id = @Id;";
+            try
+            {
+                using var connection = CreateConnection();
+                var affectedRows = await connection.ExecuteAsync(sql, new { Id = id });
+                return affectedRows > 0;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error al eliminar el producto: {ex.Message}");
+            }
+        }
+    }
+}
